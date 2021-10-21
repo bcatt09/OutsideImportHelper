@@ -12,17 +12,26 @@ namespace OutsideImportHelper
     {
         static void Main(string[] args)
         {
+            #if DEBUG
+            var file = @"C:\Users\bcatt\source\repos\OutsideImportHelper\OutsideImportHelper\bin\Release\RS.1.2.246.352.221.4951143429611281183.3635535026647927978.dcm";
+            if (true)
+            {
+            #else
             if (args.Length == 1)
             {
+                var file = args[0];
+            #endif
                 var choice = 0;
 
-                if (Path.GetFileName(args[0]).Substring(0, 2) == "RS")
+                // Structure Set
+                if (Path.GetFileName(file).Substring(0, 2) == "RS")
                 {
                     Console.ForegroundColor = ConsoleColor.Yellow;
                     Console.WriteLine("Structure Set Found");
                     choice = 1;
                 }
-                else if (Path.GetFileName(args[0]).Substring(0, 2) == "RP")
+                // Plan
+                else if (Path.GetFileName(file).Substring(0, 2) == "RP")
                 {
                     Console.ForegroundColor = ConsoleColor.Yellow;
                     Console.WriteLine("Plan Found");
@@ -47,27 +56,64 @@ namespace OutsideImportHelper
                     try
                     {
                         Console.WriteLine("Attempting to fix External/Body structure for import...");
-                        var dcm = DICOMObject.Read(args[0]);
-                        var sel = new DICOMSelector(dcm);
+                        var dcm = DICOMObject.Read(file);
+                        var selector = new DICOMSelector(dcm);
+                        var roiSelector = selector.RTROIObservationsSequence;
+                        var roiInterpretedTypes = roiSelector.Select(s => s.RTROIInterpretedType_);
+                        var externalRoiInterpretedTypes = roiInterpretedTypes.Where(x => x.Data.ToUpper() == "EXTERNAL" || x.Data.ToUpper() == "BODY");
 
-                        // Find any structures with RT ROI Interpreted Type of EXTERNAL
-                        var externals = sel.RTROIObservationsSequence.Select(s => s.RTROIInterpretedType_.Where(t => t.Data == "EXTERNAL"));
-
-                        foreach (var external in externals)
+                        // Find any structures with RT ROI Interpreted Type of EXTERNAL or BODY and change them to GTV
+                        var typeChanges = 0;
+                        foreach (var type in externalRoiInterpretedTypes)
                         {
-                            // Change the Interpreted Type to ORGAN
-                            external.Data = "ORGAN";
+                            typeChanges++;
+                            type.Data = "GTV";
+                        }
+
+                        // Find any structures with Code Value of EXTERNAL or BODY and change them to GTV
+                        var roiIdentificationCodes = roiSelector.Select(x => x.RTROIIdentificationCodeSequence_);
+
+                        var codeChanges = 0;
+                        foreach (var idCode in roiIdentificationCodes)
+                        {
+                            var bodyFlag = false;
+
+                            foreach (var roi in idCode.Data.Elements)
+                            {
+                                if (roi.Tag.CompleteID == "00080100" && (roi.DData.ToString().ToUpper() == "BODY" || roi.DData.ToString().ToUpper() == "EXTERNAL"))
+                                {
+                                    roi.DData = "GTVp";
+                                    bodyFlag = true;
+                                    codeChanges++;
+                                }
+                                if (roi.Tag.CompleteID == "00080104" && bodyFlag)
+                                {
+                                    roi.DData = "Primary Gross Tumor Volume";
+                                }
+                            }
+                        }
+
+                        // Output results
+                        if (typeChanges == 0 && codeChanges == 0)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.WriteLine("Did not find any Body structures to change");
+                        }
+                        else
+                        {
+                            Console.ForegroundColor = ConsoleColor.DarkCyan;
+                            Console.WriteLine($"Changed {typeChanges} ROI Types and {codeChanges} ROI Codes");
                         }
 
                         // Save the new file
                         Console.ForegroundColor = ConsoleColor.Green;
-                        DICOMFileWriter.Write($"NEW {Path.GetFileName(args[0])}", DICOMIOSettings.Default(), sel.ToDICOMObject());
-                        Console.WriteLine($"New RS file is in {Path.GetDirectoryName(args[0])}\\NEW {Path.GetFileName(args[0])}");
+                        DICOMFileWriter.Write($"NEW {Path.GetFileName(file)}", DICOMIOSettings.Default(), selector.ToDICOMObject());
+                        Console.WriteLine($"New RS file is in {Path.GetDirectoryName(file)}\\NEW {Path.GetFileName(file)}");
                     }
                     catch (Exception e)
                     {
                         Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine("There was an error during the process, looks like you're on your own :)");
+                        Console.WriteLine("There was an error during the process, looks like you're on your own :(");
                         Console.ForegroundColor = ConsoleColor.DarkRed;
                         Console.WriteLine($"{e.Message}\n\n{e.InnerException}\n\n{e.StackTrace}");
                     }
@@ -79,7 +125,7 @@ namespace OutsideImportHelper
                     try
                     {
                         Console.WriteLine("Attempting to change machine IDs for import...");
-                        var dcm = DICOMObject.Read(args[0]);
+                        var dcm = DICOMObject.Read(file);
                         var sel = new DICOMSelector(dcm);
 
                         // Default values
@@ -109,13 +155,13 @@ namespace OutsideImportHelper
 
                         // Save the new file
                         Console.ForegroundColor = ConsoleColor.Green;
-                        DICOMFileWriter.Write($"NEW {Path.GetFileName(args[0])}", DICOMIOSettings.Default(), sel.ToDICOMObject());
-                        Console.WriteLine($"New RP file is in {Path.GetDirectoryName(args[0])}\\NEW {Path.GetFileName(args[0])}");
+                        DICOMFileWriter.Write($"NEW {Path.GetFileName(file)}", DICOMIOSettings.Default(), sel.ToDICOMObject());
+                        Console.WriteLine($"New RP file is in {Path.GetDirectoryName(file)}\\NEW {Path.GetFileName(file)}");
                     }
                     catch (Exception e)
                     {
                         Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine("There was an error during the process, looks like you're on your own :)");
+                        Console.WriteLine("There was an error during the process, looks like you're on your own :(");
                         Console.ForegroundColor = ConsoleColor.DarkRed;
                         Console.WriteLine($"{e.Message}\n\n{e.InnerException}\n\n{e.StackTrace}");
                     }
