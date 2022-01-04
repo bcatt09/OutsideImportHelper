@@ -124,15 +124,23 @@ namespace OutsideImportHelper
                 {
                     try
                     {
+                        bool validChoice = false;
+                        int selection = -1;
+                        do
+                        {
+                            // Print out machine list and get user inupt
+                            Console.WriteLine("Which machine would you like to change the plan to use?");
+                            Console.WriteLine(String.Join("\n", McLarenLinacs.LinacList.Select((x, i) => $"{i + 1} - {x.Name}")));
+                            var machineChoice = Console.ReadLine();
+
+                            // Check validity of user input
+                            if (Int32.TryParse(machineChoice, out selection) && selection < McLarenLinacs.LinacList.Count && selection >= 0)
+                                validChoice = true;
+                        } while (!validChoice);
+
                         Console.WriteLine("Attempting to change machine IDs for import...");
                         var dcm = DICOMObject.Read(file);
                         var sel = new DICOMSelector(dcm);
-
-                        // Default values
-                        var _sn = "";
-                        var _manufacturer = "Varian Medical Systems";
-                        var _model = "Varian 2100 C/D";
-                        var _name = "Eclipse CAP";
 
                         // Find the fields we're going to change
                         var sns = sel.BeamSequence.Select(b => b.DeviceSerialNumber_);
@@ -142,16 +150,16 @@ namespace OutsideImportHelper
 
                         // Change each of the occurences of each field
                         foreach (var sn in sns)
-                            sn.Data = _sn;
+                            sn.Data = McLarenLinacs.LinacList[selection-1].SerialNumber;
 
                         foreach (var manufacturer in manufacturers)
-                            manufacturer.Data = _manufacturer;
+                            manufacturer.Data = McLarenLinacs.LinacList[selection - 1].Manufacturer;
 
                         foreach (var model in models)
-                            model.Data = _model;
+                            model.Data = McLarenLinacs.LinacList[selection - 1].Model;
 
                         foreach (var name in names)
-                            name.Data = _name;
+                            name.Data = McLarenLinacs.LinacList[selection - 1].Name;
 
                         // Save the new file
                         Console.ForegroundColor = ConsoleColor.Green;
