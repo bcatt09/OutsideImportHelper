@@ -19,7 +19,7 @@ namespace OutsideImportHelper
             Linac.new2300IX("IX_GROC", "4546"),
             Linac.new2300IX("IX_Farmington", "4694"),
             Linac.newTrueBeam("MAC_TB3568", "3568"),
-            Linac.newTrueBeam("MGL_TB5333", "5333"),
+            Linac.newTrueBeam("LAN_TB5333", "5333"),
             Linac.newTrueBeam("NOR_TB4780", "4780"),
             Linac.newTrueBeam("TB2681", "2681"),
             Linac.new2300IX("TRILOGY", "959"),
